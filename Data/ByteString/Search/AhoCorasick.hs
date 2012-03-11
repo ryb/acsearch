@@ -1,6 +1,8 @@
 {-# LANGUAGE ForeignFunctionInterface, BangPatterns #-}
 
-module Data.ByteString.Search.AhoCorasick where
+module Data.ByteString.Search.AhoCorasick
+    (Dictionary(), Match(..), Span, buildDictionary, search)
+    where
 
 import Control.Monad
 import Data.ByteString (ByteString)
@@ -16,6 +18,11 @@ type ACSTRUCTFPtr = ForeignPtr ()
 
 newtype Dictionary = Dictionary ACSTRUCTFPtr
 
+data Match = Match ByteString Span deriving (Show)
+
+-- | The index of the first character matched and the index of one past the last character matched
+type Span = (Int, Int)
+
 foreign import ccall "ac.h ac_alloc"
     ac_alloc :: IO ACSTRUCTPtr
 
@@ -29,7 +36,8 @@ foreign import ccall "ac.h ac_search_init"
     ac_search_init :: ACSTRUCTPtr -> CString -> CInt -> IO ()
 
 foreign import ccall "ac.h ac_search"
-    ac_search :: ACSTRUCTPtr -> Ptr CInt -> Ptr CInt -> IO (Ptr CChar)
+    ac_search :: ACSTRUCTPtr -> Ptr CInt -> Ptr CInt -> Ptr CInt
+              -> IO (Ptr CChar)
 
 foreign import ccall "ac.h &ac_free"
     ac_free :: FunPtr (ACSTRUCTPtr -> IO ())
@@ -47,20 +55,25 @@ buildDictionary strings = ac_alloc >>= \(!node) -> do
 
 
 -- | Searches a string for matches existing in the given dictionary
-search :: Dictionary -> ByteString -> IO [ByteString]
+search :: Dictionary -> ByteString -> IO [Match]
 search (Dictionary nodeFP) target = withForeignPtr nodeFP $ \node -> do
     BS.useAsCStringLen target $ \(t', tLen) ->
         ac_search_init node t' (fromIntegral tLen)
     buildMatchList node []
     where
         buildMatchList node matches =
-            alloca $ \matchLenPtr -> alloca $ \matchIDPtr -> do
-                ccharPtr <- ac_search node matchLenPtr matchIDPtr
+            alloca $ \matchStartPtr ->
+            alloca $ \matchLenPtr ->
+            alloca $ \matchIDPtr -> do
+                ccharPtr <- ac_search node matchStartPtr matchLenPtr
+                    matchIDPtr
                 mcchar <- maybePeek peek ccharPtr
                 case mcchar of
                     Just cchar -> do
-                        len <- peek matchLenPtr
-                        matchStr <- BS.packCStringLen
-                            (ccharPtr, fromIntegral len)
-                        buildMatchList node (matchStr:matches)
+                        len <- fmap fromIntegral $ peek matchLenPtr
+                        matchStr <- BS.packCStringLen (ccharPtr, len)
+                        matchStart <- fmap fromIntegral $ peek matchStartPtr
+                        let match = Match matchStr
+                                (matchStart, matchStart + len)
+                        buildMatchList node (match:matches)
                     Nothing -> return $ reverse matches
