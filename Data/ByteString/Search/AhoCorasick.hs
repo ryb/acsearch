@@ -1,3 +1,4 @@
+-- | Kind of an important warning: this module isn't thread-safe.
 {-# LANGUAGE ForeignFunctionInterface, BangPatterns #-}
 
 module Data.ByteString.Search.AhoCorasick
