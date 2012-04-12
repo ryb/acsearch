@@ -1,10 +1,10 @@
--- | Kind of an important warning: this module isn't thread-safe.
 {-# LANGUAGE ForeignFunctionInterface, BangPatterns #-}
 
 module Data.ByteString.Search.AhoCorasick
     (Dictionary(), Match(..), Span, buildDictionary, search)
     where
 
+import Control.Concurrent
 import Control.Monad
 import Data.ByteString (ByteString)
 import Foreign
@@ -17,7 +17,7 @@ import qualified Data.ByteString as BS
 type ACSTRUCTPtr = Ptr ()
 type ACSTRUCTFPtr = ForeignPtr ()
 
-newtype Dictionary = Dictionary ACSTRUCTFPtr
+newtype Dictionary = Dictionary (MVar ACSTRUCTFPtr)
 
 data Match = Match ByteString Span deriving (Show)
 
@@ -51,16 +51,18 @@ buildDictionary strings = ac_alloc >>= \(!node) -> do
         \(s', len) -> ac_add_string node s' (fromIntegral len) strID
     _ <- ac_prep node
     nodeFP <- newForeignPtr ac_free node
-    return $ Dictionary nodeFP
+    nodeFPV <- newMVar nodeFP
+    return $ Dictionary nodeFPV
     where stringsWithIDs = zip [1..] strings
 
 
 -- | Searches a string for matches existing in the given dictionary
 search :: Dictionary -> ByteString -> IO [Match]
-search (Dictionary nodeFP) target = withForeignPtr nodeFP $ \node -> do
-    BS.useAsCStringLen target $ \(t', tLen) ->
-        ac_search_init node t' (fromIntegral tLen)
-    buildMatchList node []
+search (Dictionary nodeFPV) target = withMVar nodeFPV $ \nodeFP ->
+    withForeignPtr nodeFP $ \node -> do
+        BS.useAsCStringLen target $ \(t', tLen) ->
+            ac_search_init node t' (fromIntegral tLen)
+        buildMatchList node []
     where
         buildMatchList node matches =
             alloca $ \matchStartPtr ->
