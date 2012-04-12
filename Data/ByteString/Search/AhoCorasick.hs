@@ -17,6 +17,7 @@ import qualified Data.ByteString as BS
 type ACSTRUCTPtr = Ptr ()
 type ACSTRUCTFPtr = ForeignPtr ()
 
+-- The better solution for scalability would be copying the structures on search instead of mutual exclusion, but that's for another time.
 newtype Dictionary = Dictionary (MVar ACSTRUCTFPtr)
 
 data Match = Match ByteString Span deriving (Show)
