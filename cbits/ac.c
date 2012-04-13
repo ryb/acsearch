@@ -448,6 +448,7 @@ void ac_search_init(AC_STRUCT *node, char *T, int N)
  * where `node', `T' and `N' are assumed to be initialized appropriately.
  *
  * Parameters:  node           -  a preprocessed AC_STRUCT structure
+ *              match_start    -  where to store the new match's start offset
  *              length_out     -  where to store the new match's length
  *              id_out         -  where to store the identifier of the
  *                                pattern that matched
@@ -500,6 +501,8 @@ char *ac_search(AC_STRUCT *node, int *match_start, int *length_out, int *id_out)
         *id_out = id;
       if (length_out)
         *length_out = node->Plengths[id];
+
+      *match_start = c - (*length_out);
 
       return &T[c] - node->Plengths[id];
     }
