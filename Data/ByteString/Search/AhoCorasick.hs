@@ -11,6 +11,7 @@ import Foreign.Ptr
 import Foreign.C.String
 import Foreign.C.Types
 import Foreign.Marshal.Utils
+import System.IO.Unsafe (unsafePerformIO)
 import qualified Data.ByteString as BS
 
 type ACSTRUCTPtr = Ptr ()
@@ -51,8 +52,8 @@ foreign import ccall "ac.h ac_cpy_free"
 
 -- Would be good to check return codes to ensure that everything succeeds
 -- | Constructs a dictionary as a set of strings for matching
-buildDictionary :: [ByteString] -> IO Dictionary
-buildDictionary strings = ac_alloc >>= \(!node) -> do
+buildDictionary :: [ByteString] -> Dictionary
+buildDictionary strings = unsafePerformIO $ ac_alloc >>= \(!node) -> do
     forM_ stringsWithIDs $ \(strID, s) -> BS.useAsCStringLen s $
         \(s', len) -> ac_add_string node s' (fromIntegral len) strID
     _ <- ac_prep node
@@ -62,14 +63,15 @@ buildDictionary strings = ac_alloc >>= \(!node) -> do
 
 
 -- | Searches a string for matches existing in the given dictionary
-search :: Dictionary -> ByteString -> IO [Match]
-search (Dictionary nodeFP) target = withForeignPtr nodeFP $ \node -> do
-    node_cpy <- ac_shallow_cpy node
-    BS.useAsCStringLen target $ \(t', tLen) ->
-        ac_search_init node_cpy t' (fromIntegral tLen)
-    !ms <- buildMatchList node_cpy []
-    ac_cpy_free node_cpy
-    return ms
+search :: Dictionary -> ByteString -> [Match]
+search (Dictionary nodeFP) target = unsafePerformIO $
+        withForeignPtr nodeFP $ \node -> do
+        node_cpy <- ac_shallow_cpy node
+        BS.useAsCStringLen target $ \(t', tLen) ->
+            ac_search_init node_cpy t' (fromIntegral tLen)
+        !ms <- buildMatchList node_cpy []
+        ac_cpy_free node_cpy
+        return ms
     where
         buildMatchList node matches =
             alloca $ \matchStartPtr ->
