@@ -9,6 +9,7 @@
  *    3/96  -  Modularized the code  (James Knight)
  *    7/96  -  Finished the modularization  (James Knight)
  *    3/12  -  Slight change to get the starting index out of the search (Ryan Burton)
+ *    4/12  -  Added functions so we can search on copies (Ryan Burton)
  */
 
 #include <stdio.h>
@@ -447,6 +448,7 @@ void ac_search_init(AC_STRUCT *node, char *T, int N)
  * where `node', `T' and `N' are assumed to be initialized appropriately.
  *
  * Parameters:  node           -  a preprocessed AC_STRUCT structure
+ *              match_start    -  where to store the new match's start offset
  *              length_out     -  where to store the new match's length
  *              id_out         -  where to store the identifier of the
  *                                pattern that matched
@@ -499,6 +501,8 @@ char *ac_search(AC_STRUCT *node, int *match_start, int *length_out, int *id_out)
         *id_out = id;
       if (length_out)
         *length_out = node->Plengths[id];
+
+      *match_start = c - (*length_out);
 
       return &T[c] - node->Plengths[id];
     }
@@ -618,5 +622,45 @@ void ac_free(AC_STRUCT *node)
   free(node);
 }
 
+/*
+ * ac_shallow_cpy
+ *
+ * Creates a shallow copy of a (presumably canonical) AC_STRUCT structure so that it can be searched against without concern for threadsafe mutation.
+ *
+ * Parameters:    node  -  a AC_STRUCT structure
+ *
+ * Returns:  A dynamically allocated AC_STRUCT structure.
+ */
+AC_STRUCT *ac_shallow_cpy(AC_STRUCT *node)
+{
+  AC_STRUCT *node_cpy;
 
+  if ((node_cpy = malloc(sizeof(AC_STRUCT))) == NULL)
+    return NULL;
+  memset(node_cpy, 0, sizeof(AC_STRUCT));
 
+  node_cpy->ispreprocessed = node->ispreprocessed;
+  node_cpy->tree = node->tree;
+  node_cpy->Plengths = node->Plengths;
+
+  return node_cpy;
+}
+
+/*
+ * ac_cpy_free
+ *
+ * Free up a shallow copy of the allocated AC_STRUCT structure. Does not traverse pointers.
+ *
+ * Parameters:   node  -  a AC_STRUCT structure
+ *
+ * Returns:  nothing.
+ */
+void ac_cpy_free(AC_STRUCT *node)
+{
+  AC_TREE front, back, next;
+
+  if (node == NULL)
+    return;
+
+  free(node);
+}

@@ -27,11 +27,13 @@ typedef struct {
 
 
 AC_STRUCT *ac_alloc(void);
+AC_STRUCT *ac_shallow_cpy(AC_STRUCT *node);
 int ac_add_string(AC_STRUCT *node, char *P, int M, int id);
 int ac_del_string(AC_STRUCT *node, char *P, int M, int id);
 int ac_prep(AC_STRUCT *node);
 void ac_search_init(AC_STRUCT *node, char *T, int N);
 char *ac_search(AC_STRUCT *node, int *match_start, int *length_out, int *id_out);
+void ac_cpy_free(AC_STRUCT *node);
 void ac_free(AC_STRUCT *node);
 
 #endif
