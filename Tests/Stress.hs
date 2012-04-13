@@ -14,15 +14,16 @@ passagePaths = map (\n -> "passages" </> (show n)) [1..10]
 
 loadPassages = mapM BSC.readFile passagePaths
 
-runSequentially dictionary passages = mapM (search dictionary) passages
+runSequentially dictionary passages =
+    mapM (return . search dictionary) passages
 
 runConcurrently dictionary passages = withPool 10 $ \pool ->
-    parallel pool $ map (search dictionary) passages
+    parallel pool $ map (return . search dictionary) passages
 
 main = do
     putStrLn $ printf "Running on %d core(s)" numCapabilities
     passages <- loadPassages
-    dictionary <- buildDictionary wordList
+    let dictionary = buildDictionary wordList
     sequentialResults <- runSequentially dictionary passages
     concurrentResults <- runConcurrently dictionary passages
     print sequentialResults

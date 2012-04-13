@@ -6,7 +6,7 @@ module Data.ByteString.Search.AhoCorasick
 
 import Control.Monad
 import Data.ByteString (ByteString)
-import Foreign
+import Foreign hiding (unsafePerformIO)
 import Foreign.Ptr
 import Foreign.C.String
 import Foreign.C.Types
